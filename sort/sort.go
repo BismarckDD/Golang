@@ -8,7 +8,6 @@ type Interface interface {
     Swap(a, b int)
 }
 
-
 func insertionSort(p_values Interface, p_begin, p_end int) {
     for i := p_begin + 1; i < p_end; i++ {
         for j := i; j > p_begin && p_values.Less(j, j - 1); j-- {
@@ -16,7 +15,6 @@ func insertionSort(p_values Interface, p_begin, p_end int) {
         }
     }
 }
-
 
 func siftUp(p_values Interface, p_curr, p_begin, p_end int) {
 
@@ -32,7 +30,6 @@ func siftUp(p_values Interface, p_curr, p_begin, p_end int) {
         }
     }
 }
-
 
 func siftDown(p_values Interface, p_curr, p_begin, p_end int) {
 
@@ -54,14 +51,12 @@ func siftDown(p_values Interface, p_curr, p_begin, p_end int) {
     }
 }
 
-
 func MakeHeap(p_values Interface, p_begin, p_end int) {
 
     for i := ((p_end - p_begin) >> 1) - 1; i >=0; i-- {
         siftDown(p_values, p_begin + i, p_begin, p_end)
     }
 }
-
 
 func heapSort(p_values Interface, p_begin, p_end int) {
 
@@ -74,22 +69,20 @@ func heapSort(p_values Interface, p_begin, p_end int) {
 }
 
 // func MedianInt(p_values []int, p_s, p_m, p_e int) int { return median(IntSlice(p_values), p_s, p_m, p_e) }
-
+// Notice!!!: Ensure p_m <= p_s <= p_e
 func median(p_values Interface, p_s, p_m, p_e int) int {
     if p_values.Less(p_s, p_m) {
         p_values.Swap(p_s, p_m)
         //  fmt.Println(p_s, p_m)
     }
     if p_values.Less(p_e, p_s) {
-        if p_values.Less(p_m, p_e) {
-            p_values.Swap(p_s, p_e)
-        } else {
+        p_values.Swap(p_e, p_s)
+        if p_values.Less(p_s, p_m) {
             p_values.Swap(p_s, p_m)
         }
     }
     return p_s
 }
-
 
 func partition(p_values Interface, p_begin, p_end int) int {
 
@@ -137,7 +130,15 @@ func partition3way(p_values Interface, p_begin, p_end int) (int, int) {
     ii := p_begin
     j := p_end - 1
     jj := p_end - 1
-    idx := median(p_values, p_begin, p_begin + ((p_end - p_begin) >> 1), p_end - 1)
+
+    m := p_begin + ((p_end - p_begin) >> 1)
+    if p_end - p_begin > 40 {
+        s := (p_end - p_begin) >> 3
+        median(p_values, p_begin, p_begin + s, p_begin + 2*s)
+        median(p_values, m, m - s, m + s)
+        median(p_values, p_end - 1, p_end - 1 - s, p_end - 1 - 2*s)
+    }
+    idx := median(p_values, p_begin, m, p_end - 1)
 
     for ; i < j; {
 
@@ -182,34 +183,185 @@ func partition3way(p_values Interface, p_begin, p_end int) (int, int) {
 }
 
 
+func customPivot(p_values Interface, p_begin, p_end int) (mlo, mhi int) {
+
+    pivot := p_begin
+    a, c := p_begin + 1, p_end - 1
+    mid := p_begin + ((p_end - p_begin) >> 1)
+    if p_end - p_begin > 40 {
+        s := (p_end - p_begin) >> 3
+        median(p_values, p_begin, p_begin + s, p_begin + (s << 1))
+        median(p_values, mid, mid - s, mid + s)
+        median(p_values, c, c - s, c - (s << 1))
+    }
+    median(p_values, p_begin, mid, c)
+
+    // Invariants are:
+    //| p_values[p_begin] = pivot (set up by ChoosePivot)
+    //| p_values[p_begin < i < a] < pivot
+    //| p_values[a <= i < b] <= pivot
+    //| p_values[b <= i < c] unexamined
+    //| p_values[c <= i < p_end-1] > pivot
+    //| p_values[p_end-1] >= pivot
+
+    for ; a < c && p_values.Less(a, pivot); a++ {
+    }
+    b := a
+
+    for {
+        for ; b < c && !p_values.Less(pivot, b); b++ { // p_values[b] <= pivot
+        }
+        for ; b < c && p_values.Less(pivot, c-1); c-- { // p_values[c-1] > pivot
+        }
+        if b >= c {
+            break
+        }
+        // p_values[b] > pivot; p_values[c-1] <= pivot
+        p_values.Swap(b, c-1)
+        b++
+        c--
+    }
+        // Protect against a p_begint of duplicates
+        // Add invariant:
+        //| p_values[a <= i < b] unexamined
+        //| p_values[b <= i < c] = pivot
+        for {
+            for ; a < b && !p_values.Less(b-1, pivot); b-- { // p_values[b] == pivot
+            }
+            for ; a < b && p_values.Less(a, pivot); a++ { // p_values[a] < pivot
+            }
+            if a >= b {
+                break
+            }
+            // p_values[a] == pivot; p_values[b-1] < pivot
+            p_values.Swap(a, b-1)
+            a++
+            b--
+        }
+    // Swap pivot into middle
+    p_values.Swap(pivot, b-1)
+    return b - 1, c
+}
+
+func doPivot(data Interface, lo, hi int) (midlo, midhi int) {
+
+    m := lo + ((hi - lo) >> 1)
+    if hi-lo > 40 {
+        s := (hi - lo) / 8
+        median(data, lo, lo+s, lo+2*s)
+        median(data, m, m-s, m+s)
+        median(data, hi-1, hi-1-s, hi-1-2*s)
+    }
+    median(data, lo, m, hi-1)
+
+    // Invariants are:
+    //| data[lo] = pivot (set up by ChoosePivot)
+    //| data[lo < i < a] < pivot
+    //| data[a <= i < b] <= pivot
+    //| data[b <= i < c] unexamined
+    //| data[c <= i < hi-1] > pivot
+    //| data[hi-1] >= pivot
+    pivot := lo
+    a, c := lo+1, hi-1
+
+    for ; a < c && data.Less(a, pivot); a++ {
+    }
+    b := a
+    for {
+        for ; b < c && !data.Less(pivot, b); b++ { // data[b] <= pivot
+        }
+        for ; b < c && data.Less(pivot, c-1); c-- { // data[c-1] > pivot
+        }
+        if b >= c {
+            break
+        }
+        // data[b] > pivot; data[c-1] <= pivot
+        data.Swap(b, c-1)
+        b++
+        c--
+    }
+    // If hi-c<3 then there are duplicates (by property of median of nine).
+    // Let be a bit more conservative, and set border to 5.
+    protect := hi-c < 5
+    if !protect && hi-c < (hi-lo)/4 {
+        // Lets test some points for equality to pivot
+        dups := 0
+        if !data.Less(pivot, hi-1) { // data[hi-1] = pivot
+            data.Swap(c, hi-1)
+            c++
+            dups++
+        }
+        if !data.Less(b-1, pivot) { // data[b-1] = pivot
+            b--
+            dups++
+        }
+        // m-lo = (hi-lo)/2 > 6
+        // b-lo > (hi-lo)*3/4-1 > 8
+        // ==> m < b ==> data[m] <= pivot
+        if !data.Less(m, pivot) { // data[m] = pivot
+            data.Swap(m, b-1)
+            b--
+            dups++
+        }
+        // if at least 2 points are equal to pivot, assume skewed distribution
+        protect = dups > 1
+    }
+    if protect {
+        // Protect against a lot of duplicates
+        // Add invariant:
+        //| data[a <= i < b] unexamined
+        //| data[b <= i < c] = pivot
+        for {
+            for ; a < b && !data.Less(b-1, pivot); b-- { // data[b] == pivot
+            }
+            for ; a < b && data.Less(a, pivot); a++ { // data[a] < pivot
+            }
+            if a >= b {
+                break
+            }
+            // data[a] == pivot; data[b-1] < pivot
+            data.Swap(a, b-1)
+            a++
+            b--
+        }
+    }
+    // Swap pivot into middle
+    data.Swap(pivot, b-1)
+    return b - 1, c
+}
+
 //func Part(p_values []int, p_begin, p_end int) int  { return partition(IntSlice(p_values), p_begin, p_end) }
 
 func introSort(p_values Interface, p_begin, p_end, p_depth int) {
 
-    if p_end - p_begin > 12 {
-
+    for p_end - p_begin > 12 {
+    // if p_end - p_begin > 12 {
         if p_depth == 0 {
              heapSort(p_values, p_begin, p_end)
              return ;
         }
-
         p_depth--
+        // mlo, mhi := doPivot(p_values, p_begin, p_end)
+        mlo, mhi := customPivot(p_values, p_begin, p_end)
+        // mlo, mhi := partition3way(p_values, p_begin, p_end)
 
-        // fmt.Println("debug", p_begin, p_end, p_values)
-        mlo, mhi := partition3way(p_values, p_begin, p_end)
-        /* for i := 0; i != mlo; i++ {
-            if !p_values.Less(i, mlo) {
-                fmt.Println(p_values, "p_beign: ", p_begin, "p_end: ", p_end, "mlo: ", mlo, "mhi: ",mhi)
+        // introSort(p_values, p_begin, mlo, p_depth)
+        // introSort(p_values, mhi, p_end, p_depth)
+        if ( p_end - mhi > mlo - p_begin) {
+            introSort(p_values, p_begin, mlo, p_depth)
+            p_begin = mhi
+        } else {
+            introSort(p_values, mhi, p_end, p_depth)
+            p_end = mlo
+        }
+    }
+
+    if p_end - p_begin > 1 {
+        for i := p_begin + 6; i < p_end; i++ {
+            if p_values.Less(i, i-6) {
+                p_values.Swap(i, i-6)
             }
         }
-        for i := mhi; i != p_values.Len(); i++ {
-            if !p_values.Less(mlo, i) {
-                fmt.Println(p_values, "p_beign: ", p_begin, "p_end: ", p_end, "mlo: ", mlo, "mhi: ",mhi)
-            }
-        }*/
-        introSort(p_values, p_begin, mlo, p_depth)
-        introSort(p_values, mhi, p_end, p_depth)
-    } else {
         insertionSort(p_values, p_begin, p_end)
     }
 }
@@ -331,6 +483,10 @@ func (p_arr Float32Slice) Len() int           { return len(p_arr) }
 func (p_arr Float32Slice) Less(a, b int) bool { return p_arr[a] < p_arr[b] }
 func (p_arr Float32Slice) Swap(a, b int)      { p_arr[a], p_arr[b] = p_arr[b], p_arr[a] }
 
+type StringSlice []string
+func (p_arr StringSlice) Len() int           { return len(p_arr) }
+func (p_arr StringSlice) Less(a, b int) bool { return p_arr[a] < p_arr[b] }
+func (p_arr StringSlice) Swap(a, b int)      { p_arr[a], p_arr[b] = p_arr[b], p_arr[a] }
 
 func SortInt  (p_arr []int)       { Sort(IntSlice(p_arr)) }
 func SortInt64(p_arr []int64)     { Sort(Int64Slice(p_arr)) }
@@ -344,6 +500,7 @@ func SortUInt16(p_arr []uint16)   { Sort(UInt16Slice(p_arr)) }
 func SortUInt8 (p_arr []uint8 )   { Sort(UInt8Slice(p_arr)) }
 func SortFloat64(p_arr []float64) { Sort(Float64Slice(p_arr)) }
 func SortFloat32(p_arr []float32) { Sort(Float32Slice(p_arr)) }
+func SortString(p_arr []string)   { Sort(StringSlice(p_arr)) }
 
 func AreSortedInt    (p_arr []int)     bool { return AreSorted(IntSlice(p_arr)) }
 func AreSortedInt64  (p_arr []int64)   bool { return AreSorted(Int64Slice(p_arr)) }
@@ -357,3 +514,4 @@ func AreSortedUInt16 (p_arr []uint16)  bool { return AreSorted(UInt16Slice(p_arr
 func AreSortedUInt8  (p_arr []uint8 )  bool { return AreSorted(UInt8Slice(p_arr)) }
 func AreSortedFloat64(p_arr []float64) bool { return AreSorted(Float64Slice(p_arr)) }
 func AreSortedFloat32(p_arr []float32) bool { return AreSorted(Float32Slice(p_arr)) }
+func AreSortedString(p_arr []string) bool { return AreSorted(StringSlice(p_arr)) }

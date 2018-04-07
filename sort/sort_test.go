@@ -54,7 +54,7 @@ func TestRandomData(t *testing.T) {
     fmt.Println("3Way QuickSort time cost: ", elapse)
 }
 
-func TestSoretedDate(t *testing.T) {
+func TestSoretedData(t *testing.T) {
 
     for i := 0; i < MAXN; i++ {
         arr[i] = i
